@@ -101,6 +101,13 @@ pub const Loader = struct {
         return true;
     }
 
+    pub fn getTLSCAStore(this: *Loader) bun.HTTP.HTTPCAStore {
+        if (this.map.get("BUN_TLS_CA_STORE")) |ca| {
+            return bun.HTTP.HTTPCAStore.parse(ca);
+        }
+        return bun.HTTP.HTTPCAStore{ .mozilla = true };
+    }
+
     pub fn getHttpProxy(this: *Loader, url: URL) ?URL {
         // TODO: When Web Worker support is added, make sure to intern these strings
         var http_proxy: ?URL = null;

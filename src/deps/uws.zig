@@ -1025,6 +1025,7 @@ pub const us_bun_socket_context_options_t = extern struct {
     ca_file_name: [*c]const u8 = null,
     ssl_ciphers: [*c]const u8 = null,
     ssl_prefer_low_memory_usage: i32 = 0,
+    ca_store: u32 = 1,
     key: [*c][*c]const u8 = null,
     key_count: u32 = 0,
     cert: [*c][*c]const u8 = null,

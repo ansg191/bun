@@ -172,6 +172,12 @@ struct us_bun_verify_error_t {
     const char* reason;
 };
 
+enum us_bun_socket_context_ca_store : unsigned int {
+    US_BUN_SOCKET_CONTEXT_CA_STORE_NONE = 0,
+    US_BUN_SOCKET_CONTEXT_CA_STORE_MOZILLA = 1 << 0,
+    US_BUN_SOCKET_CONTEXT_CA_STORE_SYSTEM = 1 << 1,
+};
+
 struct us_bun_socket_context_options_t {
     const char *key_file_name;
     const char *cert_file_name;
@@ -180,6 +186,7 @@ struct us_bun_socket_context_options_t {
     const char *ca_file_name;
     const char *ssl_ciphers;
     int ssl_prefer_low_memory_usage; /* Todo: rename to prefer_low_memory_usage and apply for TCP as well */
+    enum us_bun_socket_context_ca_store ca_store;
     const char **key;
     unsigned int key_count; 
     const char **cert;

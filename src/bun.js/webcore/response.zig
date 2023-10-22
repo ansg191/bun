@@ -1504,6 +1504,7 @@ pub const Fetch = struct {
             fetch_tasklet.http.?.client.disable_keepalive = fetch_options.disable_keepalive;
             fetch_tasklet.http.?.client.disable_decompression = fetch_options.disable_decompression;
             fetch_tasklet.http.?.client.reject_unauthorized = fetch_options.reject_unauthorized;
+            fetch_tasklet.http.?.client.ca_store = fetch_options.ca_store;
 
             fetch_tasklet.http.?.client.tls_props = fetch_options.ssl_config;
 
@@ -1556,6 +1557,7 @@ pub const Fetch = struct {
             memory_reporter: *JSC.MemoryReportingAllocator,
             check_server_identity: JSC.Strong = .{},
             ssl_config: ?SSLConfig = null,
+            ca_store: bun.HTTP.HTTPCAStore = .{},
         };
 
         pub fn queue(
@@ -1715,6 +1717,7 @@ pub const Fetch = struct {
         var url_proxy_buffer: []const u8 = undefined;
         var is_file_url = false;
         var reject_unauthorized = script_ctx.bundler.env.getTLSRejectUnauthorized();
+        var ca_store = script_ctx.bundler.env.getTLSCAStore();
         var check_server_identity: JSValue = .zero;
         // TODO: move this into a DRYer implementation
         // The status quo is very repetitive and very bug prone
@@ -1879,6 +1882,9 @@ pub const Fetch = struct {
                                     if (checkServerIdentity.isCell() and checkServerIdentity.isCallable(globalThis.vm())) {
                                         check_server_identity = checkServerIdentity;
                                     }
+                                }
+                                if (tls.get(ctx, "caStore")) |caStore| {
+                                    ca_store = bun.HTTP.HTTPCAStore.fromJS(globalThis, caStore);
                                 }
                             }
                         }
@@ -2088,6 +2094,10 @@ pub const Fetch = struct {
                                     if (checkServerIdentity.isCell() and checkServerIdentity.isCallable(globalThis.vm())) {
                                         check_server_identity = checkServerIdentity;
                                     }
+                                }
+
+                                if (tls.get(ctx, "caStore")) |caStore| {
+                                    ca_store = bun.HTTP.HTTPCAStore.fromJS(globalThis, caStore);
                                 }
                             }
                         }
@@ -2361,6 +2371,7 @@ pub const Fetch = struct {
                 .hostname = hostname,
                 .memory_reporter = memory_reporter,
                 .check_server_identity = if (check_server_identity.isEmptyOrUndefinedOrNull()) .{} else JSC.Strong.create(check_server_identity, globalThis),
+                .ca_store = ca_store,
             },
             // Pass the Strong value instead of creating a new one, or else we
             // will leak it

@@ -365,9 +365,14 @@ fn NewHTTPContext(comptime ssl: bool) type {
                 unreachable;
             }
 
-            var opts = client.tls_props.?.asUSockets();
+            var opts: uws.us_bun_socket_context_options_t = .{};
+            if (client.tls_props != null) {
+                opts = client.tls_props.?.asUSockets();
+            }
             opts.request_cert = 1;
             opts.reject_unauthorized = 0;
+            opts.ca_store = client.ca_store.raw();
+
             var socket = uws.us_create_bun_socket_context(ssl_int, http_thread.loop, @sizeOf(usize), opts);
             if (socket == null) {
                 return error.FailedToOpenSocket;
@@ -767,7 +772,7 @@ pub const HTTPThread = struct {
     pub fn connect(this: *@This(), client: *HTTPClient, comptime is_ssl: bool) !NewHTTPContext(is_ssl).HTTPSocket {
         if (comptime is_ssl) {
             const needs_own_context = client.tls_props != null and client.tls_props.?.requires_custom_request_ctx;
-            if (needs_own_context) {
+            if (needs_own_context or client.ca_store.raw() != 1) {
                 var custom_context = try bun.default_allocator.create(NewHTTPContext(is_ssl));
                 client.custom_context = custom_context;
                 try custom_context.initWithClientConfig(client);
@@ -1557,6 +1562,7 @@ signals: Signals = .{},
 async_http_id: u32 = 0,
 hostname: ?[]u8 = null,
 reject_unauthorized: bool = true,
+ca_store: HTTPCAStore = .{},
 custom_context: ?*NewHTTPContext(true) = null,
 
 pub fn init(
@@ -1717,6 +1723,50 @@ pub const HTTPChannelContext = struct {
     pub fn callback(data: HTTPCallbackPair) void {
         var this: *HTTPChannelContext = @fieldParentPtr(HTTPChannelContext, "http", data.@"0");
         this.channel.writeItem(data) catch unreachable;
+    }
+};
+
+pub const HTTPCAStore = packed struct(u32) {
+    mozilla: bool = true,
+    system: bool = false,
+
+    _padding: u30 = 0,
+
+    pub fn raw(this: HTTPCAStore) u32 {
+        return @bitCast(this);
+    }
+
+    pub fn parse(s: []const u8) HTTPCAStore {
+        var store = HTTPCAStore{ .mozilla = false, .system = false };
+
+        if (std.mem.eql(u8, s, "none")) return store;
+
+        var split = std.mem.split(u8, s, ",");
+        while (split.next()) |value| {
+            if (std.mem.eql(u8, value, "mozilla")) store.mozilla = true;
+            if (std.mem.eql(u8, value, "system")) store.system = true;
+        }
+
+        return store;
+    }
+
+    pub fn fromJS(global: *JSC.JSGlobalObject, obj: JSC.JSValue) HTTPCAStore {
+        if (obj.isNumber()) {
+            return @bitCast(obj.to(u32));
+        } else if (obj.jsTypeLoose().isArray()) {
+            var store = HTTPCAStore{ .mozilla = false, .system = false };
+            var iter = obj.arrayIterator(global);
+            while (iter.next()) |value| {
+                if (bun.String.tryFromJS(value, global)) |str| {
+                    store = @bitCast(store.raw() | HTTPCAStore.parse(str.byteSlice()).raw());
+                }
+            }
+            return store;
+        } else if (bun.String.tryFromJS(obj, global)) |str| {
+            return HTTPCAStore.parse(str.byteSlice());
+        } else {
+            return .{};
+        }
     }
 };
 

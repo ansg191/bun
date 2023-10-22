@@ -1344,6 +1344,7 @@ interface FetchRequestInit extends RequestInit {
   tls?: {
     rejectUnauthorized?: boolean | undefined; // Defaults to true
     checkServerIdentity?: any | undefined; // TODO: change `any` to `checkServerIdentity`
+    caStore?: number | string | string[] | undefined;
   };
 }
 

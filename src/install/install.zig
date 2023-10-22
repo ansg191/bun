@@ -372,6 +372,7 @@ const NetworkTask = struct {
             null,
         );
         this.http.client.reject_unauthorized = this.package_manager.tlsRejectUnauthorized();
+        this.http.client.ca_store = this.package_manager.tlsCAStore();
 
         if (PackageManager.verbose_install) {
             this.http.client.verbose = true;
@@ -456,6 +457,7 @@ const NetworkTask = struct {
             null,
         );
         this.http.client.reject_unauthorized = this.package_manager.tlsRejectUnauthorized();
+        this.http.client.ca_store = this.package_manager.tlsCAStore();
         if (PackageManager.verbose_install) {
             this.http.client.verbose = true;
         }
@@ -1740,6 +1742,10 @@ pub const PackageManager = struct {
 
     pub fn tlsRejectUnauthorized(this: *PackageManager) bool {
         return this.env.getTLSRejectUnauthorized();
+    }
+
+    pub fn tlsCAStore(this: *PackageManager) HTTP.HTTPCAStore {
+        return this.env.getTLSCAStore();
     }
 
     pub fn computeIsContinuousIntegration(this: *PackageManager) bool {

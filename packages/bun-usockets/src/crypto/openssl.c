@@ -937,34 +937,39 @@ void us_internal_init_root_certs() {
     atomic_flag_clear_explicit(&root_cert_instances_lock, memory_order_release);
 }
 
-X509_STORE* us_get_default_ca_store() {
+X509_STORE* us_get_default_ca_store(enum us_bun_socket_context_ca_store s) {
     X509_STORE *store = X509_STORE_new();
     if (store == NULL) {
         return NULL;
     }
-    
-    if (!X509_STORE_set_default_paths(store)) {
-        X509_STORE_free(store);
-        return NULL;
-    }
-    
-    us_internal_init_root_certs();
-    us_internal_init_native_certs();
 
-    // load all root_cert_instances on the default ca store
-    for (size_t i = 0; i < root_certs_size; i++) {
-        X509* cert = root_cert_instances[i];
-        if(cert == NULL) continue;
-        X509_up_ref(cert);
-        X509_STORE_add_cert(store, cert);       
+    if (s & US_BUN_SOCKET_CONTEXT_CA_STORE_SYSTEM) {
+        us_internal_init_native_certs();
+
+        // load all native_certs on the default ca store
+        for (size_t i = 0; i < native_certs_size; i++) {
+            X509 *cert = native_cert_instances[i];
+            if (cert == NULL) continue;
+            X509_up_ref(cert);
+            X509_STORE_add_cert(store, cert);
+        }
+
+        if (!X509_STORE_set_default_paths(store)) {
+            X509_STORE_free(store);
+            return NULL;
+        }
     }
 
-    // load all native_certs on the default ca store
-    for (size_t i = 0; i < native_certs_size; i++) {
-        X509 *cert = native_cert_instances[i];
-        if (cert == NULL) continue;
-        X509_up_ref(cert);
-        X509_STORE_add_cert(store, cert);
+    if (s & US_BUN_SOCKET_CONTEXT_CA_STORE_MOZILLA) {
+        us_internal_init_root_certs();
+
+        // load all root_cert_instances on the default ca store
+        for (size_t i = 0; i < root_certs_size; i++) {
+            X509 *cert = root_cert_instances[i];
+            if (cert == NULL) continue;
+            X509_up_ref(cert);
+            X509_STORE_add_cert(store, cert);
+        }
     }
 
     return store;
@@ -1361,7 +1366,7 @@ SSL_CTX *create_ssl_context_from_bun_options(struct us_bun_socket_context_option
     }
 
     if (options.ca_file_name) {
-        SSL_CTX_set_cert_store(ssl_context, us_get_default_ca_store());
+        SSL_CTX_set_cert_store(ssl_context, us_get_default_ca_store(options.ca_store));
 
         STACK_OF(X509_NAME) *ca_list;
         ca_list = SSL_load_client_CA_file(options.ca_file_name);
@@ -1393,7 +1398,7 @@ SSL_CTX *create_ssl_context_from_bun_options(struct us_bun_socket_context_option
             }
 
             if (cert_store == NULL) {
-                cert_store = us_get_default_ca_store();
+                cert_store = us_get_default_ca_store(options.ca_store);
                 SSL_CTX_set_cert_store(ssl_context, cert_store);
             }
     
@@ -1410,7 +1415,7 @@ SSL_CTX *create_ssl_context_from_bun_options(struct us_bun_socket_context_option
         }
     } else {
         if(options.request_cert) {
-            SSL_CTX_set_cert_store(ssl_context, us_get_default_ca_store());
+            SSL_CTX_set_cert_store(ssl_context, us_get_default_ca_store(options.ca_store));
             
             if(options.reject_unauthorized) {
                 SSL_CTX_set_verify(ssl_context, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, us_verify_callback);

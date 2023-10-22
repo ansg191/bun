@@ -56,6 +56,11 @@ namespace uWS {
 #include "PerMessageDeflate.h"
 
 namespace uWS {
+    enum SocketContextCAStore : unsigned int {
+        None = 0,
+        Mozilla = 1 << 0,
+        System = 1 << 1,
+    };
 
     /* This one matches us_socket_context_options_t but has default values */
     struct SocketContextOptions {
@@ -66,6 +71,7 @@ namespace uWS {
         const char *ca_file_name = nullptr;
         const char *ssl_ciphers = nullptr;
         int ssl_prefer_low_memory_usage = 0;
+        SocketContextCAStore ca_store = SocketContextCAStore::None;
 
         const char **key = nullptr;
         unsigned int key_count = 0; 
